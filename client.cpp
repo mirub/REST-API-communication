@@ -10,6 +10,7 @@
 #include <arpa/inet.h>
 #include "helpers.h"
 #include "requests.h"
+#include "functions.h"
 
 #define IP "3.8.116.10"
 #define PORT 8080
@@ -19,7 +20,7 @@ using json = nlohmann::json;
 
 enum CommandSet {
     regist, login, enter_library, get_books, get_book, add_book,
-    delete_book, logout, exit
+    delete_book, logout, ext
 };
 
 // Initialize the commands map with all the required commands
@@ -32,188 +33,7 @@ void initialize_map(unordered_map <string, CommandSet> &commands) {
     commands["add_book"] = CommandSet::add_book;
     commands["delete_book"] = CommandSet::delete_book;
     commands["logout"] = CommandSet::logout;
-    commands["exit"] = CommandSet::exit;
-}
-
-char* get_credentials() {
-    vector<string> credentials;
-    string username, password;
-
-    cout << "username=";
-    cin >> username;
-    cout << "password=";
-    cin >> password;
-
-    credentials.push_back(username);
-    credentials.push_back(password);
-    
-    json j = {{"username", credentials[0]}, {"password", credentials[1]}};
-    string converted_json = j.dump();
-
-    char *creds_to_send = (char *) malloc(converted_json.size() + 1);
-    strcpy(creds_to_send, converted_json.c_str());
-
-    return creds_to_send;
-}
-
-char *get_book_details() {
-    string title, author, genre, publisher, page_count;
-    cout << "title=";
-    cin >> title;
-    cout << "author=";
-    cin >> author;
-    cout << "genre=";
-    cin >> genre;
-    cout << "publisher=";
-    cin >> publisher;
-    cout << "page_count=";
-    cin >> page_count;
-
-    json j = {{"title", title},
-              {"author", author},
-              {"genre", genre},
-              {"publisher", publisher},
-              {"page_count", page_count}};
-
-    string converted_json = j.dump();             
-
-    char *deets_to_send = (char *) malloc(converted_json.size() + 1);
-    strcpy(deets_to_send, converted_json.c_str());
-
-    return deets_to_send;
-}
-
-char* get_initial_response(char *url, int sockfd, char *type) {
-    char *message, *response;
-    // Get the credentials
-    char *creds_to_send = get_credentials();
-    char *creds[1];
-    creds[0] = (char *) malloc(strlen(creds_to_send) + 1);
-    strcpy(creds[0], creds_to_send);
-
-    // Create, forward & receive the request
-    message = compute_post_request(IP, url, type, creds, 1, NULL, 0, 0);
-
-    send_to_server(sockfd, message);
-    response = receive_from_server(sockfd);
-
-    free(creds[0]);
-    free(message);
-    return response;
-}
-
-char* get_logout_response(char *url, int sockfd, char *type, string cookie) {
-    char *message, *response;
-
-    char *char_cookie[1];
-    char_cookie[0] = (char*) malloc(cookie.size() + 1);
-    strcpy(char_cookie[0], cookie.c_str());
-
-    // Create, forward & receive the request
-    message = compute_get_request(IP, url, NULL, char_cookie, 1, 0);
-
-    send_to_server(sockfd, message);
-    response = receive_from_server(sockfd);
-
-    free(char_cookie[0]);
-    free(message);
-    return response;
-}
-
-char* get_book_response(char *url, int sockfd, char *type,
-            string cookie, int cookies_count) {
-    char *message, *response;
-    // Get the credentials
-    char *deets_to_send = get_book_details();
-    char *deets[1];
-    deets[0] = (char *) malloc(strlen(deets_to_send) + 1);
-    strcpy(deets[0], deets_to_send);
-
-    char *char_cookie[1];
-    char_cookie[0] = (char*) malloc(cookie.size() + 1);
-    strcpy(char_cookie[0], cookie.c_str());
-
-    // Create, forward & receive the request
-    message = compute_post_request(IP, url, type, deets, 1, char_cookie, cookies_count, 1);
-
-    send_to_server(sockfd, message);
-    response = receive_from_server(sockfd);
-
-    free(deets[0]);
-    free(message);
-    free(char_cookie[0]);
-    return response;
-}
-
-char* get_cookie_response(char *url, int sockfd, string cookie, int isAuth) {
-    char* message;
-    char *char_cookie[1];
-    char_cookie[0] = (char*) malloc(cookie.size() + 1);
-    strcpy(char_cookie[0], cookie.c_str());
-
-    message = compute_get_request(IP, url, NULL, char_cookie, 1, isAuth);
-    send_to_server(sockfd, message);
-    char* response = receive_from_server(sockfd);
-
-    free(char_cookie[0]);
-    free(message);
-
-    return response;        
-}
-
-char* get_delete_response(char *url, int sockfd, string cookie, int isAuth) {
-    char* message;
-    char *char_cookie[1];
-    char_cookie[0] = (char*) malloc(cookie.size() + 1);
-    strcpy(char_cookie[0], cookie.c_str());
-
-    message = compute_delete_request(IP, url, NULL, char_cookie, 1, isAuth);
-    send_to_server(sockfd, message);
-    char* response = receive_from_server(sockfd);
-
-    free(char_cookie[0]);
-    free(message);
-
-    return response;        
-}
-
-string cookie(char* response) {
-    string str_resp(response);
-    istringstream tokenize_line(str_resp);
-    string token, prev_token = "";
-
-    while (getline(tokenize_line, token, ' ')) {
-        if (token.compare(0, 7, "connect") == 0) {
-            break;
-        }
-    }
-
-    return token;
-}
-
-string jwt_token(char* response) {
-    string str_resp(response);
-    istringstream tokenize_line(str_resp);
-    string token;
-
-    while (getline(tokenize_line, token, '\n')) {
-        if (token.compare(0, 9, "{\"token\":") == 0) {
-            break;
-        }
-    }
-
-    return token;
-}
-
-string concat_authorization(string jwt_token) {
-    string header = "Authorization: Bearer ";
-    json j = json::parse(jwt_token);
-
-    string converted_json = j.dump();
-    int jwt_size = converted_json.size() - 12;
-    header += converted_json.substr(10, jwt_size);
-
-    return header;
+    commands["exit"] = CommandSet::ext;
 }
 
 int main(int argc, char *argv[]) {
@@ -238,111 +58,129 @@ int main(int argc, char *argv[]) {
         string current_command;
         cin >> current_command;
 
-        // // If the current command is register
-        // switch(valid_commands[current_command]) {
-
-        //     case CommandSet::regist : {
-        //         cout << get_initial_response("/api/v1/tema/auth/register", sockfd, type);
-        //         break;
-        //     } 
-
-        //     case CommandSet::login : {
-        //         response = get_initial_response("/api/v1/tema/auth/login", sockfd, type);
-        //         cout << response;
-        //         session_cookie = cookie(response);
-        //         free(response);
-        //         break;
-        //     }
-
-        //     case CommandSet::enter_library : {
-        //             char *response = get_cookie_response("/api/v1/tema/library/access",
-        //                                 sockfd, session_cookie, 0);
-        //             cout << response << "\n";
-        //             library_jwt = jwt_token(response);
-        //             free(response);
-        //         break;
-        //     }
-        // }
-
         // If the current command is register
-        if (current_command == "register") {
-            cout << get_initial_response("/api/v1/tema/auth/register", sockfd, type);
+        switch(valid_commands[current_command]) {
 
-        } else if (current_command == "login") {
-            response = get_initial_response("/api/v1/tema/auth/login", sockfd, type);
-            cout << response;
-            session_cookie = cookie(response);
-            free(response);
+            case CommandSet::regist : {
+                cout << get_initial_response("/api/v1/tema/auth/register", sockfd, type) << "\n";
+                break;
+            } 
 
-        } else if (current_command == "enter_library") {
-            if (session_cookie.size() != 0) {
-                char *response = get_cookie_response("/api/v1/tema/library/access",
-                                    sockfd, session_cookie, 0);
+            case CommandSet::login : {
+                response = get_initial_response("/api/v1/tema/auth/login", sockfd, type);
                 cout << response << "\n";
-                library_jwt = jwt_token(response);
+                session_cookie = cookie(response);
                 free(response);
+                break;
             }
 
-        } else if (current_command == "get_books") {
-            string auth = "Authorization: Bearer " + library_jwt.substr(10, library_jwt.size() - 12);           
-            char *response = get_cookie_response("/api/v1/tema/library/books", sockfd, auth, 1);
-            cout << response;
-            free(response);
+            case CommandSet::enter_library : {
+                if (session_cookie.size() != 0) {
+                    char *response = get_cookie_response("/api/v1/tema/library/access",
+                                        sockfd, session_cookie, 0);
+                    cout << response << "\n";
+                    library_jwt = jwt_token(response);
+                    free(response);
+                } else {
+                    cout << "No previous login found. Please retry!\n\n";
+                }
+                break;
+            }
 
-        } else if (current_command == "get_book") {
-            string id;
-            cout << "id=";
-            cin >> id;
+            case CommandSet::get_books : {
+                if (library_jwt.size() != 0) {
+                    string auth = "Authorization: Bearer " + library_jwt.substr(10, library_jwt.size() - 12);           
+                    char *response = get_cookie_response("/api/v1/tema/library/books", sockfd, auth, 1);
+                    cout << response << "\n";
+                    free(response);
+                } else {
+                    cout << "No token found. Please retry!\n\n";
+                }
+                break;
+            }
 
-            string auth = "Authorization: Bearer " + library_jwt.substr(10, library_jwt.size() - 12);
-            string string_url = "/api/v1/tema/library/books/" + id;
+            case CommandSet::get_book : {
+                if (library_jwt.size() != 0) {
+                    string id;
+                    cout << "id=";
+                    cin >> id;
 
-            char* url = (char *) malloc(string_url.size() + 1);
-            strcpy(url, string_url.c_str());
+                    string auth = "Authorization: Bearer " + library_jwt.substr(10, library_jwt.size() - 12);
+                    string string_url = "/api/v1/tema/library/books/" + id;
 
-            char *response = get_cookie_response(url, sockfd, auth, 1);
-            cout << response;
-            free(response);
-            free(url);
+                    char* url = (char *) malloc(string_url.size() + 1);
+                    strcpy(url, string_url.c_str());
 
-        } else if (current_command == "add_book") {
-            string auth = "Authorization: Bearer " + library_jwt.substr(10, library_jwt.size() - 12);
-            char *response = get_book_response("/api/v1/tema/library/books", sockfd, type, auth, 1);
-            cout << response;
-            free(response);
+                    char *response = get_cookie_response(url, sockfd, auth, 1);
+                    cout << response;
+                    free(response);
+                    free(url);
+                } else {
+                    cout << "No token found. Please retry!\n\n";
+                }
+                break;
+            }
 
-        } else if (current_command == "delete_book") {
-            string id;
-            cout << "id=";
-            cin >> id;
+            case CommandSet::add_book : {
+                if (library_jwt.size() != 0) {
+                    string auth = "Authorization: Bearer " + library_jwt.substr(10, library_jwt.size() - 12);
+                    char *response = get_book_response("/api/v1/tema/library/books", sockfd, type, auth, 1);
+                    cout << response;
+                    free(response);
+                } else {
+                    cout << "No token found. Please retry!\n\n";
+                }
+                break;
+            }
 
-            string auth = "Authorization: Bearer " + library_jwt.substr(10, library_jwt.size() - 12);
-            string string_url = "/api/v1/tema/library/books/" + id;
+            case CommandSet::delete_book : {
+                if (library_jwt.size() != 0) {
+                    string id;
+                    cout << "id=";
+                    cin >> id;
 
-            char* url = (char *) malloc(string_url.size() + 1);
-            strcpy(url, string_url.c_str());
+                    string auth = "Authorization: Bearer " + library_jwt.substr(10, library_jwt.size() - 12);
+                    string string_url = "/api/v1/tema/library/books/" + id;
 
-            char* response = get_delete_response(url, sockfd, auth, 1);
-            cout << response;
-            free(url);
-            free(response);
-            
-        } else if (current_command == "logout") {
-            char* response = get_logout_response("/api/v1/auth/logout", sockfd, type, session_cookie);
-            cout << response;
+                    char* url = (char *) malloc(string_url.size() + 1);
+                    strcpy(url, string_url.c_str());
 
-            // Remove token and cookies
-            library_jwt = "";
-            session_cookie = "";
+                    char* response = get_delete_response(url, sockfd, auth, 1);
+                    cout << response;
+                    free(url);
+                    free(response);
+                } else {
+                    cout << "No token found. Please retry!\n\n";
+                }
+                break;
+            }
 
-        } else if (current_command == "exit") {
-            recv_commands = 0;
-        } else {
-            cout << "Invalid command, please retry.\n";
+            case CommandSet::logout : {
+                if (session_cookie.size() != 0) {
+                    char* response = get_logout_response("/api/v1/auth/logout", sockfd, type, session_cookie);
+                    cout << response;
+
+                    // Remove token and cookies
+                    library_jwt = "";
+                    session_cookie = "";
+                    cout << "The current session has ended.\n\n";
+                } else {
+                    cout << "No login found. Please login first!\n\n";
+                }
+                break;
+            }
+
+            case CommandSet::ext : {
+                recv_commands = 0;
+                break;
+            }
+
+            default : {
+                cout << "Invalid command. Please retry!\n\n";
+                break;
+            }
         }
-
         close_connection(sockfd);
     }
-
     return 0;
 }
