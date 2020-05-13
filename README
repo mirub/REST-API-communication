@@ -1,0 +1,79 @@
+Student: Banu Miruna-Elena
+Group: 321CA
+
+Description:
+
+The following program implements the functionality of the HTTP protocol via
+a program that communicates with a REST API. It mimics the functionalities
+of a web client that would usually be implemented using html, css or javascrpt.
+
+Reason of JSON library choice:
+    I have chosen the "nlohmann" library because I preferred working in C++
+since it is more intuitive. Moreover, I have found that this library is
+easier to use.
+    The only way I could get it to work, however, is by following these steps
+to install it (along with the inclusion of the needed header):
+-> git clone https://github.com/nlohmann/json.git
+-> cd json/
+-> mkdir build
+-> cd build/
+-> cmake ..
+-> sudo make install
+
+Server IP:
+    I have run locally the "dig" command on the given host to retreive the
+IP address.
+
+Functionalities:
+
+-> Register: 
+    This command sends a POST request to the server to register a pair of
+credentials: username and password. It returns to stdout the response from
+the server. Moreover, the case when there is already an ongoing session 
+has been treated locally so that this case will not send any request further.
+
+-> Login:
+    This command sends a pair of credentials via a POST request to the server
+so it can validate the authentification. It returns to stdout the response from
+the server if successful or any possible error otherwise. Locally, the case when
+there is already an ongoing session has been treated, printing an error to stdout.
+
+-> Enter library:
+    This command sends a GET request to the server so it allows the access to the
+library of the current user. It returns the response of the server to the stdout
+or any possible error. Locally, it has been checked if there is any ongoing
+session.
+
+-> Get Books:
+    This command sends a GET request to the server to show the books in the library
+of the current user. It returns the response of the server if successful, or an
+error otherwise. Locally, the case of existing jwt token has been checked.
+
+-> Get Book:
+    This command sends a GET request to the server to get the details of a book
+identified by a certain id. The response has been redirected to the stdout or 
+an error otherwise. Locally, the cases treated were: if the id is not a valid
+number or if there is a jwt token present.
+
+-> Add Book:
+    This command sends a POST request to the server to add another book and its
+details to the library. The response from the server has been shown to stdout
+or an error otherwise. Locally, the treated case were: the existence of a jwt
+token.
+
+-> Delete Book:
+    This command sends a DELETE request to the server so it deletes the book
+with the id from stdin. The response from the server is printed to stdout
+or an error if failed. The locally treated cases are: check if the id is valid
+or if there is not a jwt token.
+
+-> Logout:
+    This command sends a GET request to the server so it ends the current
+session. The response from the server is printed to stdout or an error otherwise.
+The locally treated error is: check the existence of an ongoing session.
+
+-> Exit:
+    Ends the execution of the program.
+
+Another excepted case treated is if the the command from stdin is different
+than those above-mentioned.

@@ -13,6 +13,6 @@ char *compute_post_request(char *host, char *url, char* content_type, char **bod
 // computes and returns a DELETE request string (query_params
 // and cookies can be set to NULL if not needed)
 char *compute_delete_request(char *host, char *url, char *query_params,
-							char **cookies, int cookies_count, int isAuth);
+								char **cookies, int cookies_count, int isAuth);
 
 #endif
